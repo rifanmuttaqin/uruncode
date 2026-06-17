@@ -134,6 +134,25 @@ env_key = "URUNAI_API_KEY"
   Set-Content -Path $profileFile -Value $content -Encoding ASCII
 }
 
+function Ensure-ClaudeSettings([string]$BaseUrl, [string]$Key) {
+  $settingsDir = Join-Path $env:USERPROFILE ".claude"
+  $settingsFile = Join-Path $settingsDir "settings.json"
+  New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
+  $env:URUNCODE_CLAUDE_BASE_URL = $BaseUrl
+  $env:URUNCODE_CLAUDE_AUTH_TOKEN = $Key
+  $env:URUNCODE_CLAUDE_SETTINGS_FILE = $settingsFile
+  node -e '
+const fs = require("fs");
+const file = process.env.URUNCODE_CLAUDE_SETTINGS_FILE;
+let content = {};
+if (fs.existsSync(file)) {
+  try { content = JSON.parse(fs.readFileSync(file, "utf8")); } catch { content = {}; }
+}
+content.env = { ...(content.env || {}), ANTHROPIC_BASE_URL: process.env.URUNCODE_CLAUDE_BASE_URL, ANTHROPIC_AUTH_TOKEN: process.env.URUNCODE_CLAUDE_AUTH_TOKEN };
+fs.writeFileSync(file, JSON.stringify(content, null, 2) + "\\n", "utf8");
+'
+}
+
 function Invoke-Claude([string]$Key, [string[]]$Rest) {
   if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Host 'claude CLI not found on PATH.'
@@ -145,7 +164,7 @@ function Invoke-Claude([string]$Key, [string[]]$Rest) {
 
   $env:ANTHROPIC_BASE_URL = $baseUrl
   $env:ANTHROPIC_AUTH_TOKEN = $Key
-
+  Ensure-ClaudeSettings $baseUrl $Key
   & claude @Rest
   exit $LASTEXITCODE
 }

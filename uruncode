@@ -154,6 +154,23 @@ env_key = "URUNAI_API_KEY"
 EOF
 }
 
+ensure_claude_settings() {
+  local base_url="$1" key="$2"
+  local settings_dir="$HOME/.claude"
+  local settings_file="$settings_dir/settings.json"
+  mkdir -p "$settings_dir"
+  BASE_URL="$base_url" AUTH_TOKEN="$key" SETTINGS_FILE="$settings_file" node -e '
+const fs = require("fs");
+const file = process.env.SETTINGS_FILE;
+let content = {};
+if (fs.existsSync(file)) {
+  try { content = JSON.parse(fs.readFileSync(file, "utf8")); } catch { content = {}; }
+}
+content.env = { ...(content.env || {}), ANTHROPIC_BASE_URL: process.env.BASE_URL, ANTHROPIC_AUTH_TOKEN: process.env.AUTH_TOKEN };
+fs.writeFileSync(file, JSON.stringify(content, null, 2) + "\n", "utf8");
+'
+}
+
 run_claude() {
   local key="$1"
   shift
@@ -167,6 +184,7 @@ run_claude() {
   local model="${URUNAI_CLAUDE_MODEL:-$DEFAULT_MODEL_CLAUDE}"
   export ANTHROPIC_BASE_URL="$base_url"
   export ANTHROPIC_AUTH_TOKEN="$key"
+  ensure_claude_settings "$base_url" "$key"
 
   exec claude "$@"
 }
