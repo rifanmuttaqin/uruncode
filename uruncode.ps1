@@ -38,6 +38,46 @@ function Get-Key {
   return $null
 }
 
+function Backup-FileOnce([string]$Source, [string]$Name) {
+  $backupDir = Join-Path $ConfigDir "backups"
+  $backupFile = Join-Path $backupDir $Name
+  $missingFile = "$backupFile.missing"
+  if ((Test-Path $backupFile) -or (Test-Path $missingFile)) { return }
+  New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+  if (Test-Path $Source) {
+    Copy-Item -Path $Source -Destination $backupFile -Force
+  } else {
+    Set-Content -Path $missingFile -Value "missing" -Encoding ASCII
+  }
+}
+
+function Restore-BackupFile([string]$Target, [string]$Name) {
+  $backupDir = Join-Path $ConfigDir "backups"
+  $backupFile = Join-Path $backupDir $Name
+  $missingFile = "$backupFile.missing"
+  if (Test-Path $backupFile) {
+    $targetDir = Split-Path -Parent $Target
+    if ($targetDir) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
+    Copy-Item -Path $backupFile -Destination $Target -Force
+    Remove-Item $backupFile -Force
+    Write-Host "Restored $Target"
+  } elseif (Test-Path $missingFile) {
+    if (Test-Path $Target) { Remove-Item $Target -Force }
+    Remove-Item $missingFile -Force
+    Write-Host "Removed $Target; it did not exist before uruncode."
+  }
+}
+
+function Restore-ConfigBackups {
+  $claudeSettings = Join-Path $env:USERPROFILE ".claude\settings.json"
+  $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
+  Restore-BackupFile $claudeSettings "claude-settings.json"
+  Restore-BackupFile (Join-Path $codexHome "config.toml") "codex-config.toml"
+  Restore-BackupFile (Join-Path $codexHome "uruncode.config.toml") "codex-uruncode.config.toml"
+  $backupDir = Join-Path $ConfigDir "backups"
+  if (Test-Path $backupDir) { Remove-Item $backupDir -Force -ErrorAction SilentlyContinue }
+}
+
 function Invoke-Setup {
   Write-Host ''
   Write-Host '+------------------------------------------+'
@@ -85,7 +125,7 @@ Usage:
   uruncode claude [ARGS...] Run Claude Code through UrunAI
   uruncode codex [ARGS...]  Run Codex CLI through UrunAI
   uruncode config [KEY]     Save or replace the UrunAI API key
-  uruncode reset            Delete the stored API key
+  uruncode reset            Restore CLI config backups and delete the stored API key
   uruncode update           Re-run the installer
 
 Environment overrides:
@@ -120,6 +160,8 @@ function Select-Launcher {
 function Ensure-CodexProfile([string]$BaseUrl, [string]$Model) {
   $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
   $profileFile = Join-Path $codexHome 'uruncode.config.toml'
+  Backup-FileOnce (Join-Path $codexHome "config.toml") "codex-config.toml"
+  Backup-FileOnce $profileFile "codex-uruncode.config.toml"
   New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
   $content = @"
 model = "$Model"
@@ -137,6 +179,7 @@ env_key = "URUNAI_API_KEY"
 function Ensure-ClaudeSettings([string]$BaseUrl, [string]$Key) {
   $settingsDir = Join-Path $env:USERPROFILE ".claude"
   $settingsFile = Join-Path $settingsDir "settings.json"
+  Backup-FileOnce $settingsFile "claude-settings.json"
   New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
   $env:URUNCODE_CLAUDE_BASE_URL = $BaseUrl
   $env:URUNCODE_CLAUDE_AUTH_TOKEN = $Key
@@ -199,6 +242,7 @@ if ($args.Count -ge 1) {
       exit 0
     }
     '^(reset|--reset)$' {
+      Restore-ConfigBackups
       if (Test-Path $ConfigFile) { Remove-Item $ConfigFile -Force }
       Write-Host 'Stored key removed.'
       exit 0

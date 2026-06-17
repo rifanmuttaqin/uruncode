@@ -59,7 +59,7 @@ The key is resolved in this order:
 3. `URUNAI_API_KEY` from the environment, then saved for next time.
 4. Interactive prompt.
 
-Manage the stored key:
+Manage the stored key and restore CLI config backups:
 
 ```bash
 uruncode change-key
@@ -75,6 +75,18 @@ uruncode reset
 | Windows       | `%APPDATA%\uruncode\config`             |
 
 The key is stored in plaintext on your machine with user-only permissions where supported. Treat it like any other local credential.
+
+## Config Backup and Reset
+
+Before `uruncode` changes Claude Code or Codex CLI config, it saves an original snapshot under the local uruncode config directory. The backup is created once and is not overwritten by later runs.
+
+Backed up files:
+
+- Claude Code: `~/.claude/settings.json`
+- Codex CLI: `$CODEX_HOME/config.toml` or `~/.codex/config.toml`
+- Codex CLI uruncode profile: `$CODEX_HOME/uruncode.config.toml` or `~/.codex/uruncode.config.toml`
+
+`uruncode reset` restores those backups, removes files that did not exist before uruncode created them, and deletes the stored UrunAI API key.
 
 ## What It Configures
 
