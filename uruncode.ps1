@@ -143,10 +143,7 @@ function Invoke-Claude([string]$Key, [string[]]$Rest) {
 
   $baseUrl = if ($env:URUNAI_BASE_URL) { $env:URUNAI_BASE_URL } else { $DefaultBaseUrl }
 
-  if (-not $env:ANTHROPIC_BASE_URL) {
-    $env:ANTHROPIC_BASE_URL = $baseUrl
-  }
-
+  $env:ANTHROPIC_BASE_URL = $baseUrl
   $env:ANTHROPIC_AUTH_TOKEN = $Key
 
   & claude @Rest

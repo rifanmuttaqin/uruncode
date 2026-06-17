@@ -165,7 +165,7 @@ run_claude() {
 
   local base_url="${URUNAI_BASE_URL:-$DEFAULT_BASE_URL}"
   local model="${URUNAI_CLAUDE_MODEL:-$DEFAULT_MODEL_CLAUDE}"
-  export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-$base_url}"
+  export ANTHROPIC_BASE_URL="$base_url"
   export ANTHROPIC_AUTH_TOKEN="$key"
 
   exec claude "$@"
